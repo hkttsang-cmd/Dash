@@ -279,24 +279,42 @@
         <div class="card">
             <div class="card-title">🚌 藍灣半島總站開出 (城巴)</div>
             <div class="bus-list" id="bus-list">
-                <div class="status-msg">正在自動搜尋車站並獲取實時班次...</div>
+                <div class="status-msg">正在獲取實時班次...</div>
             </div>
         </div>
     </div>
 
     <script>
+        // 設定路線與開出方向 (dir: "O" 代表由藍灣半島總站開出)
         const targetRoutes = [
-            { route: "788", dest: "往 中環" },
-            { route: "789", dest: "往 金鐘" },
-            { route: "8P",  dest: "往 灣仔碼頭" },
-            { route: "82",  dest: "往 北角碼頭" },
-            { route: "85",  dest: "往 寶馬山" },
-            { route: "82X", dest: "往 鰂魚涌" }
+            { route: "788", dest: "往 中環", dir: "O" },
+            { route: "789", dest: "往 金鐘", dir: "O" },
+            { route: "8P",  dest: "往 灣仔碼頭", dir: "O" },
+            { route: "82",  dest: "往 北角碼頭", dir: "O" },
+            { route: "85",  dest: "往 寶馬山", dir: "O" },
+            { route: "82X", dest: "往 鰂魚涌", dir: "O" }
         ];
+
+        const SIU_SAI_WAN_STOP_ID = "001259";
+
+        // 直接由 API 字串截取 HH:MM
+        function extractHHMM(isoString) {
+            if (!isoString || typeof isoString !== 'string') return "";
+            if (isoString.includes("T")) {
+                const timePart = isoString.split("T")[1];
+                if (timePart && timePart.length >= 5) {
+                    return timePart.substring(0, 5);
+                }
+            }
+            return "";
+        }
 
         function updateClock() {
             const now = new Date();
-            document.getElementById('clock').innerText = now.toLocaleTimeString('zh-HK', { hour12: false });
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            document.getElementById('clock').innerText = `${hours}:${minutes}:${seconds}`;
             
             const options = { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' };
             document.getElementById('date').innerText = now.toLocaleDateString('zh-HK', options);
@@ -332,36 +350,7 @@
             }
         }
 
-        let routeStopCache = {};
         let isFetching = false;
-
-        async function findStopIdForSiuSaiWan(route) {
-            if (routeStopCache[route]) return routeStopCache[route];
-            
-            try {
-                const [outData, inData] = await Promise.all([
-                    fetch(`https://rt.data.gov.hk/v1/transport/citybus-nwfb/route-stop/CTB/${route}/outbound`).then(r => r.json()).catch(()=>({data:[]})),
-                    fetch(`https://rt.data.gov.hk/v1/transport/citybus-nwfb/route-stop/CTB/${route}/inbound`).then(r => r.json()).catch(()=>({data:[]}))
-                ]);
-                
-                let candidateStops = [];
-                if (outData.data && outData.data.length > 0) candidateStops.push(outData.data[0].stop);
-                if (inData.data && inData.data.length > 0) candidateStops.push(inData.data[0].stop);
-                
-                for (let stop of candidateStops) {
-                    let stopInfo = await fetch(`https://rt.data.gov.hk/v1/transport/citybus-nwfb/stop/${stop}`).then(r => r.json()).catch(()=>null);
-                    if (stopInfo && stopInfo.data && stopInfo.data.name_tc) {
-                        if (stopInfo.data.name_tc.includes("藍灣") || stopInfo.data.name_tc.includes("小西灣")) {
-                            routeStopCache[route] = stop;
-                            return stop;
-                        }
-                    }
-                }
-            } catch (e) {
-                console.error(`[錯誤] 尋找 ${route} 車站失敗`, e);
-            }
-            return "001259"; 
-        }
 
         async function fetchBusETA() {
             if (isFetching) return;
@@ -369,39 +358,35 @@
             
             const busListContainer = document.getElementById('bus-list');
             let htmlContent = '';
-            const now = new Date();
+            const nowMs = Date.now();
 
             for (let bus of targetRoutes) {
                 try {
-                    let stopId = await findStopIdForSiuSaiWan(bus.route);
-                    
-                    let rawData = [];
-                    if (stopId) {
-                        let res = await fetch(`https://rt.data.gov.hk/v1/transport/citybus-nwfb/eta/CTB/${stopId}/${bus.route}`).then(r => r.json()).catch(()=>({data:[]}));
-                        if (res.data) {
-                            rawData = res.data;
-                        }
-                    }
+                    const res = await fetch(`https://rt.data.gov.hk/v1/transport/citybus-nwfb/eta/CTB/${SIU_SAI_WAN_STOP_ID}/${bus.route}`).then(r => r.json()).catch(() => ({ data: [] }));
+                    const rawData = res.data || [];
 
+                    // 核心修正：加入 dir === bus.dir 條件，只抓取「開出」方向，剔除「抵達落客」班次
                     let busList = rawData.filter(item => {
-                        if (!item.eta || item.eta.trim() === "") return false;
-                        const safeEta = item.eta.replace(/ /g, 'T');
-                        const etaDate = new Date(safeEta);
-                        if (isNaN(etaDate.getTime())) return false;
-                        
-                        const diffMs = etaDate - now;
-                        return diffMs > -60000; 
+                        if (!item.eta) return false;
+                        if (item.dir !== bus.dir) return false; // 剔除反方向/落客班次
+
+                        const safeIso = item.eta.replace(' ', 'T');
+                        const etaMs = Date.parse(safeIso);
+                        if (isNaN(etaMs)) return false;
+
+                        return (etaMs - nowMs) > -60000; // 過濾已開出超過 1 分鐘的舊數據
                     });
 
-                    busList.sort((a, b) => {
-                        return new Date(a.eta.replace(/ /g, 'T')) - new Date(b.eta.replace(/ /g, 'T'));
-                    });
+                    // 依開出時間排序
+                    busList.sort((a, b) => Date.parse(a.eta.replace(' ', 'T')) - Date.parse(b.eta.replace(' ', 'T')));
 
+                    // 剔除重複開出時間
                     let uniqueBuses = [];
                     let seenTimes = new Set();
                     for (let b of busList) {
-                        if (!seenTimes.has(b.eta)) {
-                            seenTimes.add(b.eta);
+                        const timeStr = extractHHMM(b.eta);
+                        if (timeStr && !seenTimes.has(timeStr)) {
+                            seenTimes.add(timeStr);
                             uniqueBuses.push(b);
                         }
                     }
@@ -416,10 +401,7 @@
 
                     if (firstBus && firstBus.eta) {
                         isNoData = false;
-                        const safeFirstEta = firstBus.eta.replace(/ /g, 'T');
-                        const etaTime = new Date(safeFirstEta);
-                        
-                        etaText = etaTime.toLocaleTimeString('zh-HK', { hour: '2-digit', minute: '2-digit', hour12: false });
+                        etaText = extractHHMM(firstBus.eta);
                         
                         if (firstBus.rmk_tc) {
                             etaText += ` <span style="font-size: 1rem; color: #a4b0be; font-weight: 600;">(${firstBus.rmk_tc})</span>`;
@@ -429,10 +411,8 @@
                     let subEtas = [];
                     [secondBus, thirdBus].forEach(b => {
                         if (b && b.eta) {
-                            const safeEta = b.eta.replace(/ /g, 'T');
-                            const t = new Date(safeEta);
-                            const c = t.toLocaleTimeString('zh-HK', { hour: '2-digit', minute: '2-digit', hour12: false });
-                            subEtas.push(c);
+                            const timeStr = extractHHMM(b.eta);
+                            if (timeStr) subEtas.push(timeStr);
                         }
                     });
 
