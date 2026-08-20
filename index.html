@@ -296,9 +296,9 @@
 
         const SIU_SAI_WAN_STOP_ID = "001259";
 
-        // 直接從 API 時間字串提取 HH:mm，不作任何時區轉換與比對
-        function formatTimeFromISO(isoStr) {
-            if (!isoStr || typeof isoStr !== 'string') return null;
+        // 從 ISO 時間字串直接截取 HH:MM，避免本地時區與時間差問題
+        function extractHHMM(isoStr) {
+            if (!isoStr) return null;
             const match = isoStr.match(/T(\d{2}:\d{2})/);
             return match ? match[1] : null;
         }
@@ -359,21 +359,26 @@
                     const json = await res.json();
                     const rawData = json.data || [];
 
-                    // 1. 保留所有包含有效 eta 時間的資料
-                    let validItems = rawData.filter(item => item.eta && item.eta.trim() !== "");
+                    // 核心關鍵：精準過濾「到達藍灣落客」的班次 (避免假班次)
+                    let departingBuses = rawData.filter(item => {
+                        if (!item.eta || !item.eta.trim()) return false;
 
-                    // 2. 優先選取從總站開出 (seq === 1 或 dir === "O") 的班次；若無則退回使用全部資料
-                    let outboundItems = validItems.filter(item => item.seq === 1 || item.dir === "O");
-                    let displayList = outboundItems.length > 0 ? outboundItems : validItems;
+                        // 若目的地包含「小西灣」或「藍灣」，代表巴士正在「駛入總站落客」，必須剔除！
+                        if (item.dest_tc && (item.dest_tc.includes("小西灣") || item.dest_tc.includes("藍灣"))) {
+                            return false;
+                        }
 
-                    // 3. 按預計到達時間排序
-                    displayList.sort((a, b) => new Date(a.eta) - new Date(b.eta));
+                        return true;
+                    });
 
-                    // 4. 去重 (避免同一分鐘重複顯示)
+                    // 直接以 ISO 時間字串排序 (不用 local Date，防止系統時鐘偏差導致誤刪)
+                    departingBuses.sort((a, b) => a.eta.localeCompare(b.eta));
+
+                    // 整理獨立開出時間
                     let uniqueETAs = [];
                     let seenTimes = new Set();
-                    for (let item of displayList) {
-                        const timeText = formatTimeFromISO(item.eta);
+                    for (let item of departingBuses) {
+                        const timeText = extractHHMM(item.eta);
                         if (timeText && !seenTimes.has(timeText)) {
                             seenTimes.add(timeText);
                             uniqueETAs.push({
@@ -383,7 +388,7 @@
                         }
                     }
 
-                    // 5. 輸出結果
+                    // 構建畫面 UI
                     let etaText = "未有班次";
                     let upcomingText = "後續班次: --";
                     let isNoData = true;
