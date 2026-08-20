@@ -296,13 +296,6 @@
 
         const SIU_SAI_WAN_STOP_ID = "001259";
 
-        // 從 ISO 時間字串直接截取 HH:MM，避免本地時區與時間差問題
-        function extractHHMM(isoStr) {
-            if (!isoStr) return null;
-            const match = isoStr.match(/T(\d{2}:\d{2})/);
-            return match ? match[1] : null;
-        }
-
         function updateClock() {
             const now = new Date();
             const hours = String(now.getHours()).padStart(2, '0');
@@ -352,6 +345,7 @@
             
             const busListContainer = document.getElementById('bus-list');
             let htmlContent = '';
+            const nowTime = new Date();
 
             for (let bus of targetRoutes) {
                 try {
@@ -359,49 +353,50 @@
                     const json = await res.json();
                     const rawData = json.data || [];
 
-                    // 核心關鍵：精準過濾「到達藍灣落客」的班次 (避免假班次)
-                    let departingBuses = rawData.filter(item => {
-                        if (!item.eta || !item.eta.trim()) return false;
-
-                        // 若目的地包含「小西灣」或「藍灣」，代表巴士正在「駛入總站落客」，必須剔除！
-                        if (item.dest_tc && (item.dest_tc.includes("小西灣") || item.dest_tc.includes("藍灣"))) {
-                            return false;
-                        }
-
-                        return true;
+                    // 1. 保留所有有 eta 的項目，並排除已經過去超過 1 分鐘的舊數據
+                    let validList = rawData.filter(item => {
+                        if (!item.eta) return false;
+                        const etaDate = new Date(item.eta);
+                        // 只保留目前時間往前拉 1 分鐘以內的班次（包含未來所有班次）
+                        return etaDate >= new Date(nowTime.getTime() - 60000);
                     });
 
-                    // 直接以 ISO 時間字串排序 (不用 local Date，防止系統時鐘偏差導致誤刪)
-                    departingBuses.sort((a, b) => a.eta.localeCompare(b.eta));
+                    // 2. 按預計時間排序
+                    validList.sort((a, b) => new Date(a.eta) - new Date(b.eta));
 
-                    // 整理獨立開出時間
-                    let uniqueETAs = [];
+                    // 3. 去重 (同一個 HH:mm 只保留第一個)
+                    let formattedList = [];
                     let seenTimes = new Set();
-                    for (let item of departingBuses) {
-                        const timeText = extractHHMM(item.eta);
-                        if (timeText && !seenTimes.has(timeText)) {
-                            seenTimes.add(timeText);
-                            uniqueETAs.push({
-                                time: timeText,
+
+                    for (let item of validList) {
+                        const etaDate = new Date(item.eta);
+                        const hours = String(etaDate.getHours()).padStart(2, '0');
+                        const mins = String(etaDate.getMinutes()).padStart(2, '0');
+                        const timeStr = `${hours}:${mins}`;
+
+                        if (!seenTimes.has(timeStr)) {
+                            seenTimes.add(timeStr);
+                            formattedList.push({
+                                time: timeStr,
                                 rmk: item.rmk_tc || ""
                             });
                         }
                     }
 
-                    // 構建畫面 UI
+                    // 4. 渲染 UI
                     let etaText = "未有班次";
                     let upcomingText = "後續班次: --";
                     let isNoData = true;
 
-                    if (uniqueETAs.length > 0) {
+                    if (formattedList.length > 0) {
                         isNoData = false;
-                        etaText = uniqueETAs[0].time;
-                        if (uniqueETAs[0].rmk) {
-                            etaText += ` <span style="font-size: 1rem; color: #a4b0be; font-weight: 600;">(${uniqueETAs[0].rmk})</span>`;
+                        etaText = formattedList[0].time;
+                        if (formattedList[0].rmk) {
+                            etaText += ` <span style="font-size: 1rem; color: #a4b0be; font-weight: 600;">(${formattedList[0].rmk})</span>`;
                         }
 
-                        if (uniqueETAs.length > 1) {
-                            const subTimes = uniqueETAs.slice(1, 3).map(b => b.time);
+                        if (formattedList.length > 1) {
+                            const subTimes = formattedList.slice(1, 3).map(b => b.time);
                             upcomingText = `後續: ${subTimes.join(" / ")}`;
                         }
                     }
