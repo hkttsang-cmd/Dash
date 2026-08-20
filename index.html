@@ -1,451 +1,302 @@
 <!DOCTYPE html>
 <html lang="zh-HK">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>小西灣藍灣半島 - 門口資訊站</title>
-    <style>
-        :root {
-            --bg-color: #fcf6f0;
-            --card-bg: #ffffff;
-            --primary-text: #4a3e3d;
-            --accent-pink: #f8a5c2;
-            --accent-blue: #70a1ff;
-            --accent-green: #2ed573;
-            --bus-card-bg: #f7f1e3;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
+<title>小西灣 Dashboard</title>
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--primary-text);
-            padding: 20px;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
+<style>
 
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: var(--card-bg);
-            padding: 15px 30px;
-            border-radius: 20px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.04);
-            margin-bottom: 20px;
-        }
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
 
-        .clock-container {
-            display: flex;
-            align-items: baseline;
-            gap: 15px;
-        }
+body{
+    background:#0d0f12;
+    color:white;
+    font-family:-apple-system,BlinkMacSystemFont,sans-serif;
+    height:100vh;
+    overflow:hidden;
+}
 
-        .clock {
-            font-size: 3.2rem;
-            font-weight: 800;
-            color: #2f3542;
-            letter-spacing: 1px;
-            font-variant-numeric: tabular-nums;
-        }
+.container{
+    display:flex;
+    height:100vh;
+}
 
-        .date {
-            font-size: 1.2rem;
-            color: #747d8c;
-            font-weight: 600;
-        }
+/* 左邊 */
 
-        .refresh-btn {
-            background-color: var(--accent-pink);
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 12px;
-            font-weight: bold;
-            cursor: pointer;
-            font-size: 1rem;
-            box-shadow: 0 2px 8px rgba(248, 165, 194, 0.4);
-            transition: transform 0.1s ease;
-        }
+.left{
+    width:30%;
+    background:#151922;
+    padding:30px;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+}
 
-        .refresh-btn:active {
-            transform: scale(0.95);
-        }
+.clock{
+    font-size:84px;
+    font-weight:700;
+    line-height:1;
+}
 
-        .container {
-            display: grid;
-            grid-template-columns: 1fr 1.3fr;
-            gap: 20px;
-            flex: 1;
-            min-height: 0;
-        }
+.date{
+    margin-top:10px;
+    color:#aaa;
+    font-size:18px;
+}
 
-        .card {
-            background: var(--card-bg);
-            border-radius: 20px;
-            padding: 22px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.04);
-            display: flex;
-            flex-direction: column;
-        }
+.weather-icon{
+    font-size:64px;
+    margin-top:40px;
+}
 
-        .card-title {
-            font-size: 1.3rem;
-            font-weight: bold;
-            margin-bottom: 15px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            color: #2f3542;
-        }
+.location{
+    font-size:32px;
+    margin-top:15px;
+}
 
-        .weather-content {
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            flex: 1;
-        }
+.temperature{
+    font-size:80px;
+    font-weight:700;
+    margin-top:15px;
+}
 
-        .weather-main {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 20px 0;
-            gap: 15px;
-        }
+.humidity{
+    font-size:26px;
+    color:#ccc;
+    margin-top:10px;
+}
 
-        .temp {
-            font-size: 5rem;
-            font-weight: 800;
-            color: #ff6b81;
-            line-height: 1;
-        }
+.updated{
+    margin-top:40px;
+    color:#888;
+    font-size:18px;
+}
 
-        .weather-desc {
-            font-size: 1.3rem;
-            color: #57606f;
-            text-align: center;
-            font-weight: 500;
-        }
+/* 右邊 */
 
-        .weather-details {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            background: #f8f9fa;
-            padding: 18px;
-            border-radius: 16px;
-        }
+.right{
+    flex:1;
+    padding:20px;
+    overflow:hidden;
+}
 
-        .detail-item {
-            text-align: center;
-        }
+.route-card{
+    background:#1a1f29;
+    border-radius:18px;
+    height:calc((100vh - 140px)/6);
+    margin-bottom:12px;
 
-        .detail-label {
-            font-size: 0.95rem;
-            color: #a4b0be;
-            margin-bottom: 4px;
-        }
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
 
-        .detail-value {
-            font-size: 1.3rem;
-            font-weight: bold;
-            color: #2f3542;
-        }
+    padding:0 28px;
+}
 
-        .bus-list {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            overflow-y: auto;
-            padding-right: 4px;
-        }
+.route-name{
+    font-size:52px;
+    font-weight:bold;
+    color:#54d3ff;
+    width:120px;
+}
 
-        .bus-item {
-            background: var(--bus-card-bg);
-            border-radius: 16px;
-            padding: 14px;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            border: 1px solid rgba(0,0,0,0.03);
-        }
+.times{
+    display:flex;
+    gap:20px;
+}
 
-        .bus-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
+.time-box{
+    background:#2a3342;
+    min-width:110px;
+    text-align:center;
+    padding:12px;
+    border-radius:12px;
+    font-size:30px;
+    font-weight:600;
+}
 
-        .bus-number {
-            background: #2f3542;
-            color: #eccc68;
-            font-size: 1.2rem;
-            font-weight: 800;
-            padding: 4px 10px;
-            border-radius: 8px;
-        }
-
-        .bus-dest {
-            font-size: 0.95rem;
-            color: #57606f;
-            font-weight: 700;
-        }
-
-        .bus-eta {
-            margin-top: 10px;
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-
-        .eta-primary {
-            display: flex;
-            align-items: baseline;
-            gap: 8px;
-        }
-
-        .eta-time {
-            font-size: 1.8rem;
-            font-weight: 800;
-            color: #2ed573;
-            font-variant-numeric: tabular-nums;
-        }
-        
-        .eta-time.no-data {
-            color: #ff6b81;
-            font-size: 1.3rem;
-        }
-
-        .eta-secondary {
-            font-size: 0.85rem;
-            color: #747d8c;
-            display: flex;
-            justify-content: space-between;
-            border-top: 1px dashed #dcdde1;
-            padding-top: 6px;
-            margin-top: 4px;
-        }
-        
-        .status-msg {
-            grid-column: 1 / -1;
-            text-align: center;
-            padding: 30px;
-            color: #747d8c;
-            font-size: 1.1rem;
-            font-weight: bold;
-        }
-    </style>
+</style>
 </head>
 <body>
 
-    <div class="header">
-        <div class="clock-container">
-            <div class="clock" id="clock">00:00:00</div>
-            <div class="date" id="date">加載中...</div>
+<div class="container">
+
+    <div class="left">
+
+        <div class="clock" id="clock">--:--</div>
+
+        <div class="date" id="date"></div>
+
+        <div class="weather-icon">☁️</div>
+
+        <div class="location">
+            小西灣
         </div>
-        <button class="refresh-btn" onclick="initData()">🔄 立即更新</button>
+
+        <div class="temperature" id="temperature">
+            --°
+        </div>
+
+        <div class="humidity" id="humidity">
+            濕度 --%
+        </div>
+
+        <div class="updated" id="updated">
+            更新中...
+        </div>
+
     </div>
 
-    <div class="container">
-        <div class="card">
-            <div class="card-title">🌸 小西灣 / 香港島天氣</div>
-            <div class="weather-content">
-                <div class="weather-main">
-                    <div class="temp" id="temp">--°</div>
-                </div>
-                <div class="weather-desc" id="weather-desc">正在讀取最新氣象數據...</div>
-                <div class="weather-details">
-                    <div class="detail-item">
-                        <div class="detail-label">相對濕度</div>
-                        <div class="detail-value" id="humidity">--%</div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">數據地區</div>
-                        <div class="detail-value" id="weather-location">香港島</div>
-                    </div>
-                </div>
-            </div>
-        </div>
+    <div class="right" id="routes"></div>
 
-        <div class="card">
-            <div class="card-title">🚌 藍灣半島總站開出 (城巴)</div>
-            <div class="bus-list" id="bus-list">
-                <div class="status-msg">正在獲取實時班次...</div>
-            </div>
-        </div>
-    </div>
+</div>
 
-    <script>
-        const targetRoutes = [
-            { route: "788", dest: "往 中環" },
-            { route: "789", dest: "往 金鐘" },
-            { route: "8P",  dest: "往 灣仔碼頭" },
-            { route: "82",  dest: "往 北角碼頭" },
-            { route: "85",  dest: "往 寶馬山" },
-            { route: "82X", dest: "往 鰂魚涌" }
-        ];
+<script>
 
-        const SIU_SAI_WAN_STOP_ID = "001259";
+const ROUTES=[
+"788",
+"789",
+"8P",
+"82",
+"82X",
+"85"
+];
 
-        function updateClock() {
-            const now = new Date();
-            const hours = String(now.getHours()).padStart(2, '0');
-            const minutes = String(now.getMinutes()).padStart(2, '0');
-            const seconds = String(now.getSeconds()).padStart(2, '0');
-            document.getElementById('clock').innerText = `${hours}:${minutes}:${seconds}`;
-            
-            const options = { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' };
-            document.getElementById('date').innerText = now.toLocaleDateString('zh-HK', options);
-        }
-        setInterval(updateClock, 1000);
-        updateClock();
+// 請換成真正城巴 Stop ID
+const STOP_ID="ISR";
 
-        async function fetchWeather() {
-            try {
-                const res = await fetch("https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=rhrread&lang=tc");
-                const data = await res.json();
-                
-                let tempObj = data.temperature.data.find(t => t.place === "筲箕灣") || 
-                              data.temperature.data.find(t => t.place === "香港天文台") || 
-                              data.temperature.data[0];
-                
-                document.getElementById('temp').innerText = `${tempObj.value}°`;
-                document.getElementById('weather-location').innerText = tempObj.place;
-                
-                if (data.humidity && data.humidity.data[0]) {
-                    document.getElementById('humidity').innerText = `${data.humidity.data[0].value}%`;
-                }
+function updateClock(){
 
-                let desc = "天氣大致良好";
-                if (data.rainfall && data.rainfall.data.some(r => r.max > 0)) {
-                    desc = "局部地區有雨";
-                }
-                document.getElementById('weather-desc').innerText = desc;
+    const now=new Date();
 
-            } catch (err) {
-                console.error("Weather fetch error:", err);
-                document.getElementById('weather-desc').innerText = "天氣數據更新失敗";
-            }
-        }
+    document.getElementById("clock").innerHTML=
+        now.toLocaleTimeString("zh-HK",{
+            hour:"2-digit",
+            minute:"2-digit"
+        });
 
-        let isFetching = false;
+    document.getElementById("date").innerHTML=
+        now.toLocaleDateString("zh-HK",{
+            year:"numeric",
+            month:"long",
+            day:"numeric",
+            weekday:"long"
+        });
 
-        async function fetchBusETA() {
-            if (isFetching) return;
-            isFetching = true;
-            
-            const busListContainer = document.getElementById('bus-list');
-            let htmlContent = '';
+}
 
-            for (let bus of targetRoutes) {
-                try {
-                    const res = await fetch(`https://rt.data.gov.hk/v1/transport/citybus-nwfb/eta/CTB/${SIU_SAI_WAN_STOP_ID}/${bus.route}`);
-                    const json = await res.json();
-                    const rawData = json.data || [];
+function formatTime(eta){
 
-                    // 1. 首選：濾除目的地係「小西灣」或「藍灣」嘅落客班次
-                    let items = rawData.filter(item => 
-                        item && item.eta && typeof item.eta === 'string' && item.eta.length >= 16 &&
-                        (!item.dest_tc || (!item.dest_tc.includes("小西灣") && !item.dest_tc.includes("藍灣")))
-                    );
+    if(!eta) return "--";
 
-                    // 2. 雙重保險 (Fallback)：如果第一層過濾後完全冇數據，自動放寬，只要 API 有 ETA 數據就照出
-                    if (items.length === 0) {
-                        items = rawData.filter(item => item && item.eta && typeof item.eta === 'string' && item.eta.length >= 16);
-                    }
+    return new Date(eta)
+        .toLocaleTimeString("zh-HK",{
+            hour:"2-digit",
+            minute:"2-digit"
+        });
 
-                    // 3. 純文字排序（ISO 時間字串可以直接用 localeCompare 排序）
-                    items.sort((a, b) => a.eta.localeCompare(b.eta));
+}
 
-                    // 4. 純文字截取 HH:mm (位置 11 到 16)，完全無視系統時區/時鐘問題
-                    let uniqueETAs = [];
-                    let seen = new Set();
+async function loadWeather(){
 
-                    for (let item of items) {
-                        const timeStr = item.eta.substring(11, 16); // 擷取出 "17:30"
-                        if (/^\d{2}:\d{2}$/.test(timeStr) && !seen.has(timeStr)) {
-                            seen.add(timeStr);
-                            uniqueETAs.push({
-                                time: timeStr,
-                                rmk: item.rmk_tc || ""
-                            });
-                        }
-                    }
+    try{
 
-                    // 5. 輸出渲染
-                    let etaText = "未有班次";
-                    let upcomingText = "後續班次: --";
-                    let isNoData = true;
+        const res=await fetch(
+        "https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=rhrread&lang=tc"
+        );
 
-                    if (uniqueETAs.length > 0) {
-                        isNoData = false;
-                        etaText = uniqueETAs[0].time;
-                        if (uniqueETAs[0].rmk) {
-                            etaText += ` <span style="font-size: 1rem; color: #a4b0be; font-weight: 600;">(${uniqueETAs[0].rmk})</span>`;
-                        }
+        const data=await res.json();
 
-                        if (uniqueETAs.length > 1) {
-                            const subTimes = uniqueETAs.slice(1, 3).map(b => b.time);
-                            upcomingText = `後續: ${subTimes.join(" / ")}`;
-                        }
-                    }
+        const temp=data.temperature.data[1].value;
 
-                    htmlContent += `
-                        <div class="bus-item">
-                            <div class="bus-header">
-                                <span class="bus-number">${bus.route}</span>
-                                <span class="bus-dest">${bus.dest}</span>
-                            </div>
-                            <div class="bus-eta">
-                                <div class="eta-primary">
-                                    <span class="eta-time ${isNoData ? 'no-data' : ''}">${etaText}</span>
-                                </div>
-                                <div class="eta-secondary">
-                                    <span>${upcomingText}</span>
-                                </div>
-                            </div>
-                        </div>
-                    `;
+        document.getElementById("temperature")
+        .innerHTML=temp+"°";
 
-                } catch (err) {
-                    console.error(`Bus ${bus.route} fetch error:`, err);
-                    htmlContent += `
-                        <div class="bus-item">
-                            <div class="bus-header">
-                                <span class="bus-number">${bus.route}</span>
-                                <span class="bus-dest">${bus.dest}</span>
-                            </div>
-                            <div class="bus-eta">
-                                <div class="eta-primary">
-                                    <span class="eta-time no-data" style="font-size: 1.1rem;">數據讀取失敗</span>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                }
+        document.getElementById("humidity")
+        .innerHTML=
+        "濕度 "+
+        data.humidity.data[0].value+
+        "%";
+
+    }catch(err){
+
+        console.log(err);
+
+    }
+
+}
+
+async function loadBus(){
+
+    let html='';
+
+    for(const route of ROUTES){
+
+        try{
+
+            const res=await fetch(
+            `https://rt.data.gov.hk/v2/transport/citybus/eta/CTB/${STOP_ID}/${route}`
+            );
+
+            const data=await res.json();
+
+            const eta=data.data
+            .filter(x=>x.eta)
+            .slice(0,3)
+            .map(x=>formatTime(x.eta));
+
+            while(eta.length<3){
+                eta.push("--");
             }
 
-            busListContainer.innerHTML = htmlContent;
-            isFetching = false;
+            html+=`
+            <div class="route-card">
+
+                <div class="route-name">
+                    ${route}
+                </div>
+
+                <div class="times">
+                    <div class="time-box">${eta[0]}</div>
+                    <div class="time-box">${eta[1]}</div>
+                    <div class="time-box">${eta[2]}</div>
+                </div>
+
+            </div>
+            `;
+
+        }catch(e){
+
+            console.log(e);
+
         }
 
-        function initData() {
-            fetchWeather();
-            fetchBusETA();
-        }
+    }
 
-        initData();
-        setInterval(fetchBusETA, 30000);   
-        setInterval(fetchWeather, 600000); 
-    </script>
+    document.getElementById("routes").innerHTML=html;
+
+    document.getElementById("updated").innerHTML=
+    "更新 "+
+    new Date().toLocaleTimeString("zh-HK");
+
+}
+
+updateClock();
+loadWeather();
+loadBus();
+
+setInterval(updateClock,1000);
+setInterval(loadBus,15000);
+setInterval(loadWeather,300000);
+
+</script>
+
 </body>
 </html>
