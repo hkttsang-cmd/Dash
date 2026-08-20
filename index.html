@@ -9,6 +9,7 @@
 :root{--bg:#07101d;--panel:#0e1b2d;--card:#14243a;--line:#25405c;--cyan:#65dcff;--green:#8ff0ba;--muted:#9eb0c5;--white:#f6fbff}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--white);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang HK","Noto Sans TC",sans-serif}
 .main{height:100vh;display:grid;grid-template-columns:32% 68%;gap:14px;padding:14px}
+.refresh-btn{position:fixed;top:24px;left:24px;z-index:20;width:58px;height:58px;border:1px solid #3b6287;border-radius:50%;background:rgba(11,23,38,.92);color:var(--white);font-size:30px;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.35);-webkit-tap-highlight-color:transparent}.refresh-btn:active{transform:scale(.94);background:#17314d}.refresh-btn.refreshing{animation:spin .8s linear infinite;opacity:.72}@keyframes spin{to{transform:rotate(360deg)}}
 .left,.right{min-width:0}.left{background:linear-gradient(160deg,#12243b,#0a1525);border:1px solid var(--line);border-radius:24px;padding:clamp(18px,3vw,38px);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
 .clock{font-size:clamp(64px,9vw,126px);font-weight:800;letter-spacing:-5px;line-height:.92}.seconds{font-size:.34em;color:var(--cyan);letter-spacing:0}.date{margin-top:17px;font-size:clamp(17px,2vw,28px);color:var(--muted)}
 .weather-icon{font-size:clamp(58px,7vw,94px);margin-top:clamp(18px,4vh,42px)}.place{font-size:clamp(24px,3vw,40px);font-weight:750}.temp{font-size:clamp(66px,9vw,116px);font-weight:850;line-height:1.05;color:#ffd66b}.weather-row{display:flex;gap:18px;margin-top:10px;font-size:clamp(16px,2vw,26px);color:#dce9f6}.small{font-size:clamp(13px,1.45vw,20px);color:var(--muted);margin-top:16px;min-height:1.5em}.error{color:#ff9e9e}
@@ -17,6 +18,7 @@
 </style>
 </head>
 <body>
+<button class="refresh-btn" id="refreshBtn" type="button" aria-label="重新整理" title="重新整理">↻</button>
 <main class="main">
 <section class="left">
   <div class="clock"><span id="clock">--:--</span><span class="seconds" id="seconds">:--</span></div>
@@ -104,6 +106,19 @@ async function loadWeather(){
    $("weatherStatus").textContent=preferred?`溫度站：${preferred.place}`:"香港天文台即時資料";
  }catch(e){$("weatherStatus").textContent="天氣資料暫時未能讀取";$("weatherStatus").classList.add("error")}
 }
+async function refreshAll(){
+ const btn=$("refreshBtn");
+ btn.classList.add("refreshing");
+ btn.disabled=true;
+ $("updated").textContent="正在重新整理";
+ try{
+   await Promise.all([loadWeather(),loadBus()]);
+ }finally{
+   btn.classList.remove("refreshing");
+   btn.disabled=false;
+ }
+}
+$("refreshBtn").addEventListener("click",refreshAll);
 initCards();tick();loadWeather();loadBus();
 setInterval(tick,1000);setInterval(loadBus,60000);setInterval(loadWeather,600000);
 </script>
