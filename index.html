@@ -209,14 +209,15 @@
 
         .eta-primary {
             display: flex;
-            justify-content: space-between;
             align-items: baseline;
+            gap: 8px;
         }
 
         .eta-time {
-            font-size: 1.6rem;
+            font-size: 1.8rem;
             font-weight: 800;
             color: #2ed573;
+            font-variant-numeric: tabular-nums;
         }
         
         .eta-time.no-data {
@@ -224,20 +225,14 @@
             font-size: 1.3rem;
         }
 
-        .eta-clock {
-            font-size: 0.85rem;
-            color: #a4b0be;
-            font-weight: 600;
-        }
-
         .eta-secondary {
-            font-size: 0.8rem;
+            font-size: 0.85rem;
             color: #747d8c;
             display: flex;
             justify-content: space-between;
             border-top: 1px dashed #dcdde1;
-            padding-top: 4px;
-            margin-top: 2px;
+            padding-top: 6px;
+            margin-top: 4px;
         }
         
         .status-msg {
@@ -340,7 +335,6 @@
         let routeStopCache = {};
         let isFetching = false;
 
-        // 動態獲取小西灣藍灣半島的正確車站 ID
         async function findStopIdForSiuSaiWan(route) {
             if (routeStopCache[route]) return routeStopCache[route];
             
@@ -351,7 +345,6 @@
                 ]);
                 
                 let candidateStops = [];
-                // 藍灣半島是總站，通常是序列的第1個站
                 if (outData.data && outData.data.length > 0) candidateStops.push(outData.data[0].stop);
                 if (inData.data && inData.data.length > 0) candidateStops.push(inData.data[0].stop);
                 
@@ -359,7 +352,6 @@
                     let stopInfo = await fetch(`https://rt.data.gov.hk/v1/transport/citybus-nwfb/stop/${stop}`).then(r => r.json()).catch(()=>null);
                     if (stopInfo && stopInfo.data && stopInfo.data.name_tc) {
                         if (stopInfo.data.name_tc.includes("藍灣") || stopInfo.data.name_tc.includes("小西灣")) {
-                            console.log(`[自動尋找] 路線 ${route} 的藍灣半島車站ID為: ${stop}`);
                             routeStopCache[route] = stop;
                             return stop;
                         }
@@ -368,7 +360,7 @@
             } catch (e) {
                 console.error(`[錯誤] 尋找 ${route} 車站失敗`, e);
             }
-            return "001259"; // 如果API失效，則使用舊有預設ID作為Fallback
+            return "001259"; 
         }
 
         async function fetchBusETA() {
@@ -377,13 +369,12 @@
             
             const busListContainer = document.getElementById('bus-list');
             let htmlContent = '';
+            const now = new Date();
 
             for (let bus of targetRoutes) {
                 try {
-                    // 1. 動態取得正確的 Stop ID
                     let stopId = await findStopIdForSiuSaiWan(bus.route);
                     
-                    // 2. 獲取實時數據
                     let rawData = [];
                     if (stopId) {
                         let res = await fetch(`https://rt.data.gov.hk/v1/transport/citybus-nwfb/eta/CTB/${stopId}/${bus.route}`).then(r => r.json()).catch(()=>({data:[]}));
@@ -392,11 +383,20 @@
                         }
                     }
 
-                    // 3. 處理數據
-                    let busList = rawData.filter(item => item.eta && item.eta.trim() !== "");
-                    busList.sort((a, b) => new Date(a.eta) - new Date(b.eta));
+                    let busList = rawData.filter(item => {
+                        if (!item.eta || item.eta.trim() === "") return false;
+                        const safeEta = item.eta.replace(/ /g, 'T');
+                        const etaDate = new Date(safeEta);
+                        if (isNaN(etaDate.getTime())) return false;
+                        
+                        const diffMs = etaDate - now;
+                        return diffMs > -60000; 
+                    });
 
-                    // 過濾相同時間的班次(避免API重複返回)
+                    busList.sort((a, b) => {
+                        return new Date(a.eta.replace(/ /g, 'T')) - new Date(b.eta.replace(/ /g, 'T'));
+                    });
+
                     let uniqueBuses = [];
                     let seenTimes = new Set();
                     for (let b of busList) {
@@ -411,32 +411,28 @@
                     let thirdBus = uniqueBuses[2];
 
                     let etaText = "未有班次";
-                    let clockText = "--:--";
                     let upcomingText = "後續班次: --";
                     let isNoData = true;
 
                     if (firstBus && firstBus.eta) {
                         isNoData = false;
-                        const etaTime = new Date(firstBus.eta);
-                        const diffMs = etaTime - new Date();
-                        const diffMins = Math.max(0, Math.floor(diffMs / 60000));
-
-                        etaText = diffMins === 0 ? "即將開出" : `${diffMins} 分鐘`;
-                        clockText = etaTime.toLocaleTimeString('zh-HK', { hour: '2-digit', minute: '2-digit', hour12: false });
+                        const safeFirstEta = firstBus.eta.replace(/ /g, 'T');
+                        const etaTime = new Date(safeFirstEta);
                         
-                        // 若有備註（例如：最後班次）
+                        etaText = etaTime.toLocaleTimeString('zh-HK', { hour: '2-digit', minute: '2-digit', hour12: false });
+                        
                         if (firstBus.rmk_tc) {
-                            clockText += ` (${firstBus.rmk_tc})`;
+                            etaText += ` <span style="font-size: 1rem; color: #a4b0be; font-weight: 600;">(${firstBus.rmk_tc})</span>`;
                         }
                     }
 
                     let subEtas = [];
                     [secondBus, thirdBus].forEach(b => {
                         if (b && b.eta) {
-                            const t = new Date(b.eta);
-                            const m = Math.max(0, Math.floor((t - new Date()) / 60000));
+                            const safeEta = b.eta.replace(/ /g, 'T');
+                            const t = new Date(safeEta);
                             const c = t.toLocaleTimeString('zh-HK', { hour: '2-digit', minute: '2-digit', hour12: false });
-                            subEtas.push(`${m}分 (${c})`);
+                            subEtas.push(c);
                         }
                     });
 
@@ -453,7 +449,6 @@
                             <div class="bus-eta">
                                 <div class="eta-primary">
                                     <span class="eta-time ${isNoData ? 'no-data' : ''}">${etaText}</span>
-                                    <span class="eta-clock">${clockText}</span>
                                 </div>
                                 <div class="eta-secondary">
                                     <span>${upcomingText}</span>
@@ -489,12 +484,9 @@
             fetchBusETA();
         }
 
-        // 初始化
         initData();
-        
-        // 設定定時更新
-        setInterval(fetchBusETA, 30000);   // 巴士 ETA 每 30 秒更新
-        setInterval(fetchWeather, 600000); // 天氣每 10 分鐘更新
+        setInterval(fetchBusETA, 30000);   
+        setInterval(fetchWeather, 600000); 
     </script>
 </body>
 </html>
