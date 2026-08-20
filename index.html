@@ -285,28 +285,29 @@
     </div>
 
     <script>
-        // 設定路線與開出方向 (dir: "O" 代表由藍灣半島總站開出)
         const targetRoutes = [
-            { route: "788", dest: "往 中環", dir: "O" },
-            { route: "789", dest: "往 金鐘", dir: "O" },
-            { route: "8P",  dest: "往 灣仔碼頭", dir: "O" },
-            { route: "82",  dest: "往 北角碼頭", dir: "O" },
-            { route: "85",  dest: "往 寶馬山", dir: "O" },
-            { route: "82X", dest: "往 鰂魚涌", dir: "O" }
+            { route: "788", dest: "往 中環" },
+            { route: "789", dest: "往 金鐘" },
+            { route: "8P",  dest: "往 灣仔碼頭" },
+            { route: "82",  dest: "往 北角碼頭" },
+            { route: "85",  dest: "往 寶馬山" },
+            { route: "82X", dest: "往 鰂魚涌" }
         ];
 
         const SIU_SAI_WAN_STOP_ID = "001259";
 
-        // 直接由 API 字串截取 HH:MM
-        function extractHHMM(isoString) {
-            if (!isoString || typeof isoString !== 'string') return "";
-            if (isoString.includes("T")) {
-                const timePart = isoString.split("T")[1];
-                if (timePart && timePart.length >= 5) {
-                    return timePart.substring(0, 5);
-                }
-            }
-            return "";
+        // 從 API 字串提取 HH:MM (例如 2026-08-20T16:45:00+08:00 擷取出 16:45)
+        function extractTime(isoString) {
+            if (!isoString) return null;
+            const match = isoString.match(/T(\d{2}:\d{2})/);
+            return match ? match[1] : null;
+        }
+
+        // 將 HH:MM 轉成一天的總分鐘數，以便排序和比對
+        function timeToMinutes(timeStr) {
+            if (!timeStr) return -1;
+            const parts = timeStr.split(":");
+            return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
         }
 
         function updateClock() {
@@ -358,35 +359,41 @@
             
             const busListContainer = document.getElementById('bus-list');
             let htmlContent = '';
-            const nowMs = Date.now();
+            
+            const now = new Date();
+            const currentMinutes = now.getHours() * 60 + now.getMinutes();
 
             for (let bus of targetRoutes) {
                 try {
                     const res = await fetch(`https://rt.data.gov.hk/v1/transport/citybus-nwfb/eta/CTB/${SIU_SAI_WAN_STOP_ID}/${bus.route}`).then(r => r.json()).catch(() => ({ data: [] }));
                     const rawData = res.data || [];
 
-                    // 核心修正：加入 dir === bus.dir 條件，只抓取「開出」方向，剔除「抵達落客」班次
-                    let busList = rawData.filter(item => {
-                        if (!item.eta) return false;
-                        if (item.dir !== bus.dir) return false; // 剔除反方向/落客班次
+                    let validBuses = [];
+                    for (let item of rawData) {
+                        const timeStr = extractTime(item.eta);
+                        if (!timeStr) continue;
 
-                        const safeIso = item.eta.replace(' ', 'T');
-                        const etaMs = Date.parse(safeIso);
-                        if (isNaN(etaMs)) return false;
+                        const busMinutes = timeToMinutes(timeStr);
+                        
+                        // 過濾掉已超過 2 分鐘前的舊班次（考慮跨夜情況）
+                        if (busMinutes >= currentMinutes - 2 || (busMinutes < 120 && currentMinutes > 1320)) {
+                            validBuses.push({
+                                timeStr: timeStr,
+                                minutes: busMinutes < currentMinutes - 2 ? busMinutes + 1440 : busMinutes,
+                                rmk: item.rmk_tc || ""
+                            });
+                        }
+                    }
 
-                        return (etaMs - nowMs) > -60000; // 過濾已開出超過 1 分鐘的舊數據
-                    });
+                    // 按時間順序排列
+                    validBuses.sort((a, b) => a.minutes - b.minutes);
 
-                    // 依開出時間排序
-                    busList.sort((a, b) => Date.parse(a.eta.replace(' ', 'T')) - Date.parse(b.eta.replace(' ', 'T')));
-
-                    // 剔除重複開出時間
+                    // 剔除重複時間
                     let uniqueBuses = [];
-                    let seenTimes = new Set();
-                    for (let b of busList) {
-                        const timeStr = extractHHMM(b.eta);
-                        if (timeStr && !seenTimes.has(timeStr)) {
-                            seenTimes.add(timeStr);
+                    let seen = new Set();
+                    for (let b of validBuses) {
+                        if (!seen.has(b.timeStr)) {
+                            seen.add(b.timeStr);
                             uniqueBuses.push(b);
                         }
                     }
@@ -399,21 +406,17 @@
                     let upcomingText = "後續班次: --";
                     let isNoData = true;
 
-                    if (firstBus && firstBus.eta) {
+                    if (firstBus) {
                         isNoData = false;
-                        etaText = extractHHMM(firstBus.eta);
-                        
-                        if (firstBus.rmk_tc) {
-                            etaText += ` <span style="font-size: 1rem; color: #a4b0be; font-weight: 600;">(${firstBus.rmk_tc})</span>`;
+                        etaText = firstBus.timeStr;
+                        if (firstBus.rmk) {
+                            etaText += ` <span style="font-size: 1rem; color: #a4b0be; font-weight: 600;">(${firstBus.rmk})</span>`;
                         }
                     }
 
                     let subEtas = [];
                     [secondBus, thirdBus].forEach(b => {
-                        if (b && b.eta) {
-                            const timeStr = extractHHMM(b.eta);
-                            if (timeStr) subEtas.push(timeStr);
-                        }
+                        if (b) subEtas.push(b.timeStr);
                     });
 
                     if (subEtas.length > 0) {
